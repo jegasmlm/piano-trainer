@@ -46,7 +46,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <span><b>Reset progress</b><small>Deletes XP, streak and memory data on this device</small></span>
           <button className="btn danger small" onClick={() => { if (confirm('Reset all progress?')) resetProgress(); }}>Reset</button>
         </div>
-        <p className="muted small credits">Piano: Salamander Grand Piano (CC-BY 3.0, Alexander Holm) · Notation font: Bravura (SIL OFL)</p>
+        <p className="muted small credits">Piano: Salamander Grand Piano (CC-BY 3.0, Alexander Holm) · Notation font: Bravura (SIL OFL) · build {__BUILD__}</p>
       </div>
     </div>
   );

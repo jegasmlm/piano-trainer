@@ -24,6 +24,7 @@ export function initPiano(): Promise<void> {
       release: 1.2,
       onload: () => {
         loaded = true;
+        qa.loaded = true;
         loadListeners.forEach((l) => l(true));
         resolve();
       },
@@ -43,9 +44,14 @@ export async function unlockAudio() {
 
 const midiToFreqName = (m: number) => Tone.Frequency(m, 'midi').toNote();
 
+// Exposed for automated QA: counts notes actually sent to the sampler.
+const qa = { triggered: 0, last: -1, loaded: false };
+(globalThis as unknown as { __keysreaderAudio: typeof qa }).__keysreaderAudio = qa;
+
 export function noteOn(midi: number, velocity = 0.8) {
   const s = getProgress().settings;
   if (!s.sound || !sampler || !loaded) return;
+  qa.triggered++; qa.last = midi;
   sampler.volume.value = s.volume;
   sampler.triggerAttack(midiToFreqName(midi), Tone.now(), velocity);
 }

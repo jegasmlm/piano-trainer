@@ -247,7 +247,7 @@ export function LessonScreen({ spec, onExit, onPractice }: { spec: SessionSpec; 
     const acc = stats.answered ? Math.round((stats.firstTry / stats.answered) * 100) : 100;
     const secs = Math.round((Date.now() - startTime) / 1000);
     return (
-      <div className="complete">
+      <div className="results-screen">
         <Confetti />
         <div className="complete-card pop">
           <div className="big-emoji">{acc >= 90 ? '🏆' : acc >= 70 ? '🎉' : '💪'}</div>
@@ -267,7 +267,7 @@ export function LessonScreen({ spec, onExit, onPractice }: { spec: SessionSpec; 
   }
   if (phase === 'noHearts') {
     return (
-      <div className="complete">
+      <div className="results-screen">
         <div className="complete-card pop">
           <div className="big-emoji">💔</div>
           <h1>Out of hearts</h1>
@@ -288,13 +288,13 @@ export function LessonScreen({ spec, onExit, onPractice }: { spec: SessionSpec; 
         {isPractice ? (
           <button className="btn small" onClick={finish}>Finish</button>
         ) : (
-          <div className={`hearts ${progress.settings.unlimitedHearts ? 'inf' : ''}`}>❤️ {progress.settings.unlimitedHearts ? '∞' : hearts}</div>
+          <div className={`lesson-hearts ${progress.settings.unlimitedHearts ? 'inf' : ''}`}>❤️ {progress.settings.unlimitedHearts ? '∞' : hearts}</div>
         )}
       </header>
       <div className="lesson-sub">
         <span>{init.title}</span>
         <MidiStatus compact />
-        {stats.combo >= 3 && <span className="combo">🔥 {stats.combo}</span>}
+        {stats.combo >= 3 && <span className="combo-pill">🔥 {stats.combo}</span>}
         {isPractice && <span className="muted">⚡ {stats.xp} XP · {stats.correct} correct</span>}
       </div>
 

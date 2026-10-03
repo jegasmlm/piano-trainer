@@ -110,7 +110,7 @@ export function buildLesson(course: Course, loc: UnitLoc, ref: LessonRef, p: Pro
     return i >= 0 && arr.length ? arr.splice(i, 1)[0] : undefined;
   };
   for (const it of introItems) {
-    head.push(mkSlot(it, true));
+    head.push(mkSlot(take(restNew, it.id) ?? it, true)); // the intro uses up one of the item's slots
     const otherNew = restNew.find((e) => e.id !== it.id && !introItems.includes(e));
     const rv = take(restReview) ?? (otherNew ? take(restNew, otherNew.id) : undefined);
     if (rv) head.push(mkSlot(rv));

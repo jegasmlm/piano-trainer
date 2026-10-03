@@ -1,5 +1,5 @@
-import { useEffect, useRef, type PointerEvent as RPointerEvent } from 'react';
-import { keyLayout, KEYMAP_REVERSE } from './keyLayout';
+import { useEffect, useReducer, useRef, type PointerEvent as RPointerEvent } from 'react';
+import { keyLayout, onLabels, shortcutLabel } from './keyLayout';
 import { midiName } from '../music/notes';
 import type { KeyLabels } from '../state/progress';
 
@@ -21,6 +21,8 @@ export function Keyboard({ lo, hi, pressed, marks, onDown, onUp, labels, shortcu
   const { keys, whiteCount } = keyLayout(lo, hi);
   const active = useRef(new Map<number, number>()); // pointerId -> midi
   const wrap = useRef<HTMLDivElement>(null);
+  const [, rerender] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => onLabels(rerender), []);
 
   // keep the interesting region in view on narrow screens
   useEffect(() => {
@@ -76,7 +78,7 @@ export function Keyboard({ lo, hi, pressed, marks, onDown, onUp, labels, shortcu
       {keys.map((k) => {
         const mark = marks[k.midi];
         const rel = shortcutBase != null ? k.midi - shortcutBase : -1;
-        const sc = rel >= 0 ? KEYMAP_REVERSE[rel] : undefined;
+        const sc = rel >= 0 ? shortcutLabel(rel) : undefined;
         const name = midiName(k.midi);
         const showName = labels === 'all' ? !k.black : labels === 'c' ? k.midi % 12 === 0 : false;
         return (

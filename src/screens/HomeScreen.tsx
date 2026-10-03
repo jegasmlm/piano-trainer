@@ -23,7 +23,7 @@ export function TopStats({ onSettings }: { onSettings?: () => void }) {
       <MidiStatus compact />
       <span className={`stat streak ${p.lastActiveDay === dayKey() ? 'lit' : ''}`} title="Day streak">🔥 {streak}</span>
       <span className="stat xp" title="Total XP">⚡ {p.xp}</span>
-      <span className="stat hearts" title={nextInMs ? `Next heart in ${Math.ceil(nextInMs / 60000)} min` : 'Hearts full'}>❤️ {p.settings.unlimitedHearts ? '∞' : hearts}</span>
+      <span className="stat stat-hearts" title={nextInMs ? `Next heart in ${Math.ceil(nextInMs / 60000)} min` : 'Hearts full'}>❤️ {p.settings.unlimitedHearts ? '∞' : hearts}</span>
       {onSettings && <button className="icon-btn" aria-label="Settings" onClick={onSettings}>⚙️</button>}
     </div>
   );
@@ -109,16 +109,17 @@ export function HomeScreen({ courseId, onCourse, onLesson, onPractice, onSetting
                       <div key={u.unit.id} className={`node-wrap ${isOpen ? "open" : ""}`} style={{ transform: `translateX(${offset}px)` }}>
                         {isCurrent && !isOpen && <div className="start-bubble">START</div>}
                         <button
-                          className={`node ${complete ? 'complete' : ''} ${unlocked ? '' : 'locked'} ${isCurrent ? 'current' : ''} ${u.unit.type}`}
+                          className={`node node--${u.unit.type} ${complete ? 'node--complete' : done > 0 ? 'node--partial' : ''} ${unlocked ? '' : 'node--locked'} ${isCurrent ? 'node--current' : ''}`}
                           style={{ ['--pct' as string]: `${pct}%` }}
                           onClick={() => setOpen(isOpen ? null : u.unit.id)}
                           aria-label={u.unit.title}
                         >
                           <span className="node-face">{unlocked ? (complete ? '★' : u.unit.icon) : '🔒'}</span>
+                          {unlocked && u.unit.lessons > 1 && <span className="node-count">{done}/{u.unit.lessons}</span>}
                         </button>
-                        <div className="node-label">{u.unit.title}</div>
+                        <div className={`node-label ${complete ? "is-done" : ""}`}>{u.unit.title}</div>
                         {isOpen && (
-                          <div className="node-pop pop">
+                          <div className="node-pop pop" ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}>
                             <b>{u.unit.title}</b>
                             <p>{u.unit.description}</p>
                             {unlocked ? (
