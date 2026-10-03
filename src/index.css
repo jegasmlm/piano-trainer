@@ -76,13 +76,19 @@ kbd { font-family: inherit; font-size: 0.75em; border: 1px solid #ccc; border-bo
 .section-banner h2 { margin: 2px 0; }
 .section-banner p { margin: 0; opacity: .92; }
 .nodes { display: flex; flex-direction: column; align-items: center; padding: 58px 0 6px; gap: 46px; }
-.node-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+.node-wrap { position: relative; display: flex; flex-direction: column; align-items: center; flex: none; }
+/* Unit buttons: hard-pinned size (no flex/grid stretch, no UA button styles) so no engine can distort them. */
 .node {
-  width: 74px; height: 74px; border-radius: 50%; border: none; position: relative; padding: 0;
+  -webkit-appearance: none; appearance: none; box-sizing: border-box; margin: 0;
+  width: 74px; height: 74px; min-width: 74px; min-height: 74px; max-width: 74px; max-height: 74px;
+  flex: 0 0 74px; align-self: center; aspect-ratio: 1 / 1; overflow: visible;
+  border-radius: 50%; border: none; position: relative; padding: 0; line-height: 1;
   background: conic-gradient(var(--gold) var(--pct), #e5e5e5 0); display: grid; place-items: center;
 }
 .node-face {
-  width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; font-size: 1.6rem; font-weight: 900; color: #fff;
+  box-sizing: border-box; flex: none; aspect-ratio: 1 / 1;
+  width: 62px; height: 62px; min-width: 62px; min-height: 62px; max-width: 62px; max-height: 62px;
+  border-radius: 50%; display: grid; place-items: center; font-size: 1.6rem; font-weight: 900; color: #fff; line-height: 1;
   background: var(--sec); box-shadow: 0 5px 0 rgba(0,0,0,.2); transition: transform .1s;
 }
 .node:active .node-face { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,.2); }
@@ -91,7 +97,7 @@ kbd { font-family: inherit; font-size: 0.75em; border: 1px solid #ccc; border-bo
 .node.node--complete { background: var(--gold); }
 .node.node--complete .node-face { background: var(--gold); box-shadow: 0 5px 0 #e0a800; color: #fff; text-shadow: 0 2px 0 #d39b00; font-size: 1.9rem; border: 3px solid #fff; }
 .node.node--checkpoint, .node.node--checkpoint .node-face { border-radius: 22px; }
-.node.node--current { box-shadow: 0 0 0 6px color-mix(in srgb, var(--sec) 22%, transparent); }
+.node.node--current { box-shadow: 0 0 0 6px rgba(0,0,0,.08); box-shadow: 0 0 0 6px color-mix(in srgb, var(--sec) 22%, transparent); }
 .node-count { position: absolute; bottom: -6px; right: -8px; background: #fff; border: 2px solid var(--line); border-radius: 99px; font-size: .7rem; font-weight: 900; padding: 1px 6px; color: #888; line-height: 1.3; }
 .node--complete .node-count { color: #c98f00; border-color: #ffe08a; }
 .node-label.is-done { color: #c98f00; }
@@ -248,3 +254,4 @@ kbd { font-family: inherit; font-size: 0.75em; border: 1px solid #ccc; border-bo
 }
 @media (hover: none) { .shortcut { display: none; } }
 .node-wrap.open { z-index: 30; }
+.update-pill { left: auto; right: 12px; background: var(--blue); }

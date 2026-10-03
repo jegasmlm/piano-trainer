@@ -1,8 +1,10 @@
 // Exhaustive QA suite for KeysReader. Usage: node tests/qa.mjs [baseURL]
-import { chromium } from 'playwright-core';
+import { chromium, webkit, devices } from 'playwright-core';
 const URL = process.argv[2] ?? 'http://localhost:4173/';
 const SHOTS = 'screenshots/qa';
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--autoplay-policy=no-user-gesture-required'] });
+let wk = null; // WebKit (Safari engine) launched lazily
+const engines = async (e) => e === 'webkit' ? (wk ??= await webkit.launch()) : browser;
 const results = [];
 const allErrors = [];
 const CODES = ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY', 'KeyH', 'KeyU', 'KeyJ', 'KeyK', 'KeyO', 'KeyL', 'KeyP', 'Semicolon', 'Quote'];
@@ -10,16 +12,19 @@ const ES_KEYS = { Semicolon: 'ñ', Quote: 'Dead' };
 const AZERTY = { KeyA: 'q', KeyW: 'z', KeyS: 's', KeyE: 'e', KeyD: 'd', KeyF: 'f', KeyT: 't', KeyG: 'g', KeyY: 'y', KeyH: 'h', KeyU: 'u', KeyJ: 'j', KeyK: 'k', KeyO: 'o', KeyL: 'l', KeyP: 'p', Semicolon: 'm', Quote: 'ù' };
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 const DESKTOP = { viewport: { width: 1280, height: 800 } };
+const IPHONE = devices['iPhone 13'];
 
 function assert(c, msg) { if (!c) throw new Error(msg); }
 
-async function open({ device = DESKTOP, progress = null, midi = false, midiLater = false } = {}) {
-  const ctx = await browser.newContext({ ...device, deviceScaleFactor: 2 });
+async function open({ device = DESKTOP, progress = null, midi = false, midiLater = false, engine = 'chromium' } = {}) {
+  const ctx = await (await engines(engine)).newContext({ ...device, deviceScaleFactor: device.deviceScaleFactor ?? 2 });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', (e) => errors.push('pageerror ' + e.message));
-  page.on('requestfailed', (r) => errors.push('requestfailed ' + r.url()));
+  // A version.json poll that is cancelled because the test navigates away is benign (WebKit reports it as an error).
+  const benign = (t) => /version\.json/.test(t) && /(access control|cancelled|aborted|requestfailed)/i.test(t);
+  page.on('console', (m) => { if (m.type() === 'error' && !benign(m.text())) errors.push(m.text()); });
+  page.on('pageerror', (e) => { if (!benign(e.message)) errors.push('pageerror ' + e.message); });
+  page.on('requestfailed', (r) => { if (!benign('requestfailed ' + r.url())) errors.push('requestfailed ' + r.url() + ' ' + (r.failure()?.errorText ?? '')); });
   await page.addInitScript(({ midi, midiLater }) => {
     window.__notes = [];
     window.addEventListener('keysreader:note', (e) => window.__notes.push(e.detail.midi));
@@ -140,8 +145,24 @@ async function runLesson(page, { method = 'click', mistakes = 0, maxSteps = 200,
   return { acc, xp, sawRetry, sawIntro, answered };
 }
 const nodeInfo = (page) => page.evaluate(() => [...document.querySelectorAll('.node')].map((n) => ({
-  label: n.getAttribute('aria-label'), cls: n.className, count: n.querySelector('.node-count')?.textContent ?? null, h: n.getBoundingClientRect().height,
+  label: n.getAttribute('aria-label'), cls: n.className, count: n.querySelector('.node-count')?.textContent ?? null,
+  h: n.getBoundingClientRect().height, w: n.getBoundingClientRect().width,
 })));
+/** Every unit button must be roughly square and < 120px in both directions. */
+function assertSquareNodes(info, ctx = '') {
+  const bad = info.filter((n) => !(n.w > 50 && n.w < 120 && n.h > 50 && n.h < 120 && Math.abs(n.w - n.h) <= 4));
+  assert(info.length > 0 && bad.length === 0, `${ctx} non-square unit buttons: ` + bad.map((n) => `${n.label} ${Math.round(n.w)}x${Math.round(n.h)}`).join(', '));
+}
+function juanLikeState() {
+  const now = Date.now();
+  const lessons = {};
+  const done = [['t1', 3], ['t2', 2], ['t3', 3], ['t4', 3], ['t5', 3], ['t6', 3], ['t7', 2], ['t-cp', 2], ['b1', 3], ['b2', 1]];
+  for (const [u, n] of done) for (let i = 0; i < n; i++) lessons[`sight-reading/${u}/${i}`] = { completions: 1 + (i % 2), bestAccuracy: 0.85, lastCompleted: now - 3600e3 };
+  const srs = {};
+  for (const n of ['C4', 'G4', 'C5', 'D4', 'E4', 'F4', 'A4', 'B4', 'D5', 'E5', 'F5', 'G5']) srs[`note:treble:${n}`] = { box: 3, due: now, seen: 9, correct: 8, wrong: 1, last: now };
+  return { version: 1, xp: 2015, dailyXp: {}, streak: 1, longestStreak: 1, lastActiveDay: null, hearts: 1, heartsUpdatedAt: now, lessons, srs,
+    settings: { sound: true, volume: 0, keyLabels: 'c', showShortcuts: true, unlimitedHearts: false, unlockAll: false, lessonLength: 12, dailyGoal: 50, showRoll: true } };
+}
 
 // ====================================================================================
 // (a) computer keyboard
@@ -313,10 +334,11 @@ await test('MIDI: full lesson + chords played simultaneously + melodies', async 
 // ====================================================================================
 // (d) lessons, hearts, home path states, checkpoint, practice, settings, persistence
 // ====================================================================================
-for (const dev of ['desktop', 'phone']) {
+for (const dev of ['desktop', 'phone', 'webkit-iphone']) {
   await test(`lessons + home path states after 0/1/2/3 lessons (${dev})`, async (open) => {
-    const { page } = await open({ device: dev === 'phone' ? PHONE : DESKTOP });
-    const method = dev === 'phone' ? 'tap' : 'click';
+    const { page } = await open({ device: dev === 'phone' ? PHONE : dev === 'webkit-iphone' ? IPHONE : DESKTOP, engine: dev.startsWith('webkit') ? 'webkit' : 'chromium' });
+    const method = dev === 'desktop' ? 'click' : 'tap';
+    assertSquareNodes(await nodeInfo(page), 'fresh');
     let info = await nodeInfo(page);
     assert(info[0].cls.includes('node--current') && !info[0].cls.includes('locked'), 'unit1 current at start');
     assert(info[1].cls.includes('node--locked'), 'unit2 locked at start');
@@ -331,7 +353,7 @@ for (const dev of ['desktop', 'phone']) {
       await page.waitForSelector('.home');
       await page.waitForTimeout(300);
       info = await nodeInfo(page);
-      assert(info.every((n) => n.h > 60 && n.h < 90), 'node heights ok: ' + info.slice(0, 3).map((n) => n.h));
+      assertSquareNodes(info, `after ${l} lessons`);
       assert(info[0].count === `${l}/3`, `count ${info[0].count} after ${l}`);
       if (l < 3) assert(info[0].cls.includes('node--partial') && info[0].cls.includes('node--current'), `partial after ${l}: ${info[0].cls}`);
       else {
@@ -430,9 +452,90 @@ await test('settings toggles apply and persist', async (open) => {
   assert(r.answered === 6, 'lesson length 6 respected: ' + r.answered);
 });
 
+
+// ====================================================================================
+// (g) WebKit / iOS Safari + existing-user data + deploy updates
+// ====================================================================================
+for (const [label, engine, device] of [['webkit-iphone', 'webkit', IPHONE], ['chromium-phone', 'chromium', PHONE], ['chromium-desktop', 'chromium', DESKTOP]]) {
+  await test(`existing user (2015 XP, many completed units) home path renders (${label})`, async (open) => {
+    const state = juanLikeState();
+    const { page } = await open({ engine, device, progress: state });
+    const info = await nodeInfo(page);
+    assertSquareNodes(info, label);
+    const complete = info.filter((n) => n.cls.includes('node--complete'));
+    assert(complete.length === 9, 'completed units: ' + complete.length);
+    assert(info.find((n) => n.label === 'Bass C').cls.includes('node--current'), 'Bass C current');
+    assert((await page.textContent('.stat.xp')).includes('2015'), 'xp kept');
+    assert((await page.textContent('.stat.stat-hearts')).includes('1'), 'hearts kept');
+    // the stored progress must be untouched by loading the new build
+    const stored = JSON.parse(await page.evaluate(() => localStorage.getItem('pianoTrainer.progress.v1')));
+    assert(stored.xp === 2015 && Object.keys(stored.lessons).length === Object.keys(state.lessons).length, 'progress preserved');
+    await page.$eval('.node[aria-label="Treble C"]', (el) => el.scrollIntoView({ block: 'start' }));
+    await page.evaluate(() => window.scrollBy(0, -90));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${SHOTS}/home-completed-units-${label}.png` });
+    // the replay popup of a completed unit
+    await page.click('.node[aria-label="Around the G line"]');
+    await page.waitForTimeout(500);
+    assert((await page.textContent('.node-pop')).includes('Replay'), 'replay');
+    await page.screenshot({ path: `${SHOTS}/home-completed-popup-${label}.png` });
+  });
+}
+
+await test('webkit-iphone: lesson with mistakes → results screen', async (open) => {
+  const { page } = await open({ engine: 'webkit', device: IPHONE, progress: { settings: { unlockAll: true } } });
+  await openUnit(page, 'Major triads: C, F, G');
+  const r = await runLesson(page, { method: 'tap', mistakes: 1, shotPrefix: 'webkit-iphone-chords' });
+  assert(r.acc < 100 && r.sawRetry, 'acc/retry');
+  const box = await page.$eval('.results-screen .complete-card', (e) => { const r = e.getBoundingClientRect(); return { w: r.width, h: r.height }; });
+  assert(box.w <= 390 && box.h < 800, 'results card size ' + JSON.stringify(box));
+  await page.screenshot({ path: `${SHOTS}/results-webkit-iphone.png` });
+  await page.click('.results-screen .btn.primary');
+  assertSquareNodes(await nodeInfo(page), 'after results');
+});
+
+await test('webkit: every mapped key incl. Spanish Ñ/´ registers', async (open) => {
+  const { page } = await open({ engine: 'webkit', progress: { settings: { unlimitedHearts: true } } });
+  await openUnit(page, 'Middle C & Treble G');
+  for (let i = 0; i < CODES.length; i++) {
+    await clearNotes(page);
+    const key = ES_KEYS[CODES[i]] ?? CODES[i].slice(3).toLowerCase();
+    await synthKey(page, 'keydown', CODES[i], key); await synthKey(page, 'keyup', CODES[i], key);
+    assert((await notes(page))[0] === 60 + i, `${CODES[i]} → ${JSON.stringify(await notes(page))}`);
+  }
+});
+
+await test('new deploy detected → reloads on home, keeps progress; never interrupts a lesson', async (open) => {
+  const { page } = await open({ progress: juanLikeState() });
+  // pretend a newer build was deployed
+  await page.route('**/version.json*', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ build: 'newer-build-xyz' }) }));
+  // in a lesson: must NOT reload, only show the banner
+  await openUnit(page, 'Bass C');
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForSelector('.update-pill', { timeout: 5000 });
+  assert(!page.url().includes('v=newer-build-xyz'), 'reloaded mid-lesson');
+  // back home → reload into the new build
+  await page.click('[aria-label="Quit"]');
+  await page.waitForURL(/v=newer-build-xyz/, { timeout: 8000 });
+  await page.waitForSelector('.home');
+  assert((await page.textContent('.stat.xp')).includes('2015'), 'xp survived reload');
+  // loop guard: same build again must not reload a second time
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(1500);
+  assert(await page.$('.home'), 'still on home, no loop');
+});
+
+await test('served build is current (version.json matches running bundle)', async (open) => {
+  const { page } = await open({});
+  const v = await page.evaluate(async () => (await (await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })).json()).build);
+  const bundle = await page.evaluate(async () => { const src = document.querySelector('script[type=module]').src; return (await (await fetch(src, { cache: 'no-store' })).text()); });
+  assert(v && bundle.includes(v), `version.json build ${v} not in running bundle`);
+});
+
 // ====================================================================================
 console.log('\n==== SUMMARY ====');
 for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.ok ? ` (${(r.ms / 1000).toFixed(1)}s)` : ' — ' + r.err}`);
 console.log(`${results.filter((r) => r.ok).length}/${results.length} passed`);
 await browser.close();
+if (wk) await wk.close();
 process.exit(results.every((r) => r.ok) ? 0 : 1);

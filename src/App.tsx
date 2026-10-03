@@ -3,6 +3,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { LessonScreen, type SessionSpec } from './screens/LessonScreen';
 import { Settings } from './screens/Settings';
 import { unlockAudio, onPianoLoaded, isPianoLoaded } from './audio/piano';
+import { applyUpdate, onUpdate, startVersionWatch } from './version';
 
 type Route = { name: 'home' } | { name: 'session'; spec: SessionSpec; key: number };
 
@@ -14,6 +15,10 @@ export default function App() {
   const [audioStarted, setAudioStarted] = useState(false);
 
   useEffect(() => onPianoLoaded(setLoaded), []);
+  const [update, setUpdate] = useState<string | null>(null);
+  useEffect(() => { startVersionWatch(); return onUpdate(setUpdate); }, []);
+  // Auto-reload into a newer deploy whenever we're on the home screen (never interrupts a lesson).
+  useEffect(() => { if (update && route.name === 'home') applyUpdate(update); }, [update, route.name]);
   useEffect(() => { localStorage.setItem('pianoTrainer.course', courseId); }, [courseId]);
   useEffect(() => {
     const go = () => { void unlockAudio(); setAudioStarted(true); };
@@ -41,6 +46,7 @@ export default function App() {
       )}
       {settings && <Settings onClose={() => setSettingsOpen(false)} />}
       {audioStarted && !loaded && <div className="loading-pill">🎹 Loading piano…</div>}
+      {update && route.name !== 'home' && <div className="loading-pill update-pill">✨ Update ready — it installs when you finish</div>}
     </div>
   );
 }
