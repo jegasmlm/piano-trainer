@@ -298,6 +298,7 @@ export function LessonScreen({ spec, onExit, onPractice }: { spec: SessionSpec; 
         {isPractice && <span className="muted">⚡ {stats.xp} XP · {stats.correct} correct</span>}
       </div>
 
+      <div className="stage">
       <main className="question">
         {isIntro ? (
           <div className="intro-badge">✨ New {ex.kind === 'note' ? 'note' : ex.kind}: <b>{ex.label}</b></div>
@@ -337,6 +338,8 @@ export function LessonScreen({ spec, onExit, onPractice }: { spec: SessionSpec; 
             </div>
           </div>
         )}
+      </div>
+
       </div>
 
       <PianoPanel lo={lo} hi={hi} marks={marks} onNote={handleNote} roll={roll} onEnter={advance} center={center} />

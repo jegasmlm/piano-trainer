@@ -31,7 +31,7 @@ const FLAT_TREBLE = [4, 7, 3, 6, 2, 5, 1];
 
 export function Staff({ clef, fifths = 0, notes, layout, ghosts = [], activeIndex }: Props) {
   const staves: Clef[] = clef === 'grand' ? ['treble', 'bass'] : [clef];
-  const topY: Record<Clef, number> = clef === 'grand' ? { treble: 6 * S, bass: 17 * S } : { treble: 6 * S, bass: 6 * S };
+  const topY: Record<Clef, number> = clef === 'grand' ? { treble: 6 * S, bass: 16 * S } : { treble: 6 * S, bass: 6 * S };
   const height = clef === 'grand' ? 26 * S : 15 * S;
   const y = (pos: number, st: Clef) => topY[st] + ((8 - pos) * S) / 2;
 
@@ -141,10 +141,10 @@ export function Staff({ clef, fifths = 0, notes, layout, ghosts = [], activeInde
   const bots = staves.map((st) => topY[st] + 6.6 * S);
   for (const pl of placed) { tops.push(y(pl.pos, pl.st) - 1.6 * S); bots.push(y(pl.pos, pl.st) + 1.6 * S); }
   const vbTop = Math.max(0, Math.min(...tops, clef === 'grand' ? 3 * S : 2.2 * S));
-  const vbBot = Math.min(height, Math.max(...bots, clef === 'grand' ? 23 * S : 12.4 * S));
+  const vbBot = Math.min(height, Math.max(...bots, clef === 'grand' ? 22 * S : 12.4 * S));
   const vbH = vbBot - vbTop;
   return (
-    <svg className={`staff ${clef === 'grand' ? 'grand' : ''}`} viewBox={`0 ${vbTop} ${width} ${vbH}`} style={{ height: `calc(var(--staff-k) * ${clef === 'grand' ? (vbH * 0.72).toFixed(1) : vbH})`, maxWidth: '100%' }} role="img" aria-label="music staff">
+    <svg className={`staff ${clef === 'grand' ? 'grand' : ''}`} viewBox={`0 ${vbTop} ${width} ${vbH}`} style={{ height: `calc(var(--staff-k) * ${clef === 'grand' ? (vbH * 0.62).toFixed(1) : vbH})`, maxWidth: '100%' }} role="img" aria-label="music staff">
       {els}
     </svg>
   );
